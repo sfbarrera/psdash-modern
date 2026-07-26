@@ -1,0 +1,81 @@
+# Integracion continua: pruebas, cobertura, analisis de calidad/seguridad.
+# Habilita la entrega incremental verificando en cada cambio que no hay
+# regresion funcional ni nuevas vulnerabilidades.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    name: Pruebas y cobertura (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check app
+      - name: Pruebas con cobertura
+        working-directory: backend
+        run: pytest --cov=app --cov-report=xml --cov-report=term
+      - name: Guardar reporte de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: backend/coverage.xml
+
+  frontend-build:
+    name: Build (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Instalar y compilar
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+  security-scan:
+    name: Escaneo de vulnerabilidades (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Escaneo del sistema de archivos
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          format: table
+          exit-code: "0"   # informa sin romper el build; subir a 1 para exigir 0 criticas
+
+  sonarqube:
+    name: Analisis SonarQube
+    runs-on: ubuntu-latest
+    needs: backend-tests
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Descargar cobertura
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: backend
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

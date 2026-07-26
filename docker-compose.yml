@@ -1,0 +1,27 @@
+# Orquestacion de la aplicacion modernizada psdash.
+# Levanta el backend (FastAPI) y el frontend (Nginx + SPA de React).
+services:
+  backend:
+    build: ./backend
+    container_name: psdash-api
+    environment:
+      # Directorios del host que se monitorearan como fuente de logs (RF-05).
+      PSDASH_LOG_DIRS: "/logs"
+      PSDASH_CORS_ORIGINS: "http://localhost:8080"
+    volumes:
+      # Monta /var/log del host en modo solo lectura (tactica: menor privilegio).
+      - /var/log:/logs:ro
+    # No se exponen puertos al host: solo el frontend habla con el backend
+    # por la red interna de Docker. Unico punto de entrada = Nginx.
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: psdash-web
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
