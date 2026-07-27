@@ -5,12 +5,17 @@ services:
     build: ./backend
     container_name: psdash-api
     environment:
-      # Directorios del host que se monitorearan como fuente de logs (RF-05).
-      PSDASH_LOG_DIRS: "/logs"
+      # Directorios del contenedor que se monitorearan como fuente de logs (RF-05).
+      PSDASH_LOG_DIRS: "/var/log:/logs"
       PSDASH_CORS_ORIGINS: "http://localhost:8080"
     volumes:
-      # Monta /var/log del host en modo solo lectura (tactica: menor privilegio).
-      - /var/log:/logs:ro
+      # Logs reales del host en modo solo lectura (tactica: menor privilegio).
+      # Es la fuente que se usa en el despliegue sobre Linux.
+      - /var/log:/var/log:ro
+      # Logs del propio proyecto: en Windows y macOS el /var/log del host no
+      # trae archivos .log, asi que esta ruta relativa asegura que el panel
+      # tenga datos en cualquier equipo.
+      - ./sample-logs:/logs:ro
     # No se exponen puertos al host: solo el frontend habla con el backend
     # por la red interna de Docker. Unico punto de entrada = Nginx.
     expose:
